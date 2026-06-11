@@ -1,0 +1,4 @@
+interface:
+  display_name: "Program Workflow"
+  short_description: "Coordinate one large goal as multiple ordered roadmaps"
+  default_prompt: "Use $program to create or continue a multi-roadmap program workflow for this project."
