@@ -1,5 +1,8 @@
 # codex-workflow-skills
 
+- English: [README.md](./README.md)
+- 中文： [README.zh-CN.md](./README.zh-CN.md)
+
 Public export of two Codex workflow skills from a working local Codex setup:
 
 - `roadmap` — break a medium or large task into reviewable, verifiable versions
