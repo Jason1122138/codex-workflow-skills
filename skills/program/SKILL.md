@@ -16,6 +16,8 @@ workflow.
 - Keep legacy `roadmap-codex/` roadmaps unchanged.
 - A program contains multiple child roadmaps, but only one active roadmap by default.
 - `program-codex/PROGRAM.md` is the only source of truth for the active roadmap.
+- A completed program must be archived immediately; root `PROGRAM.md` is only
+  for the currently active program.
 
 ## Starting A New Program
 
@@ -24,19 +26,25 @@ already exists.
 
 Rules:
 
-- If no root `PROGRAM.md` exists, create the new program normally.
-- If the existing program is `done` or `blocked`, archive the whole current
-  `program-codex/` state before creating a new root `PROGRAM.md`.
-- Archive path: `program-codex/archive/YYYY-MM-DD-<program-slug>/`.
-- The archive must include the old `PROGRAM.md` and its `roadmaps/` directory.
-- After archiving, the new active program owns the root `PROGRAM.md` and
-  `roadmaps/` directory.
+- If no root `PROGRAM.md` exists, create the new program normally and start
+  child roadmap numbering at `R001`.
+- If the existing program is `done`, archive the whole current `program-codex/`
+  state immediately before any new planning.
+- If the existing program is `blocked`, keep it at the root by default so the
+  blocker remains visible; archive it only when the user explicitly asks.
+- Archive path: `program-codex/archive/YYYY-MM-DD-P001-<program-slug>/`.
+- The archive must include the old `PROGRAM.md` and its complete `roadmaps/`
+  directory.
+- After archiving, remove root `PROGRAM.md` and root `roadmaps/`; the next
+  active program recreates both from scratch.
 - If the existing program still has an `in_progress` roadmap, do not create a
   new program. Ask the user to choose: continue the existing program, pause or
   block and archive it, or explicitly overwrite it.
 - Do not mix roadmaps from two different programs under the root `roadmaps/`.
 - Do not use `archive/` as an active program source; hooks only use the root
   `PROGRAM.md`.
+- Do not continue child roadmap numbering from an archived program. Every new
+  root program starts at `R001`.
 
 ## Layout
 
@@ -51,6 +59,10 @@ program-codex/
     R002-<slug>/
       index.md
       v1-<slug>.md
+  archive/
+    YYYY-MM-DD-P001-<program-slug>/
+      PROGRAM.md
+      roadmaps/
 ```
 
 ## PROGRAM.md Template
@@ -59,7 +71,10 @@ program-codex/
 # Program: <name>
 Goal: <one-line program goal>
 
+**Program ID**: P001-<slug>
+**Status**: in_progress
 **Started**: YYYY-MM-DD HH:MM TZ
+**Done at**: -
 **Active roadmap**: R001-<slug>
 **Policy**: sequential
 
@@ -78,6 +93,8 @@ Goal: <one-line program goal>
 - **Last review blockers**: -
 ```
 
+Allowed program statuses: `in_progress`, `done`, and `blocked`.
+
 Allowed roadmap statuses: `not_started`, `in_progress`, `paused`, `done`, and
 `blocked`.
 
@@ -89,6 +106,8 @@ Each child roadmap uses the existing `$roadmap` format inside
 Rules:
 
 - Use sequential roadmap IDs: `R001`, `R002`, `R003`.
+- For a new root program, always start child roadmap IDs at `R001`; ignore
+  archived programs when choosing IDs.
 - Use exactly one active roadmap in `PROGRAM.md`.
 - Child roadmap `index.md` manages only its own active version.
 - Do not infer active roadmap from child roadmap status when `PROGRAM.md` exists.
@@ -106,6 +125,8 @@ The subagent checks:
 - child roadmap split, ordering, and dependencies;
 - exactly one active roadmap;
 - child roadmap paths and version files exist;
+- new root program child roadmap IDs start at `R001` and do not continue from
+  archived programs;
 - each child roadmap has concrete done-when and verification checks;
 - no conflict with legacy `roadmap-codex/`.
 
@@ -129,6 +150,22 @@ The subagent checks:
 - the program state commit changes only allowed state files.
 
 The same retry cap applies: at most two main-agent fixes, then `blocked`.
+
+## Program Completion
+
+When the final child roadmap is complete:
+
+- confirm every child roadmap is `done`;
+- confirm every child roadmap has `Final verification`;
+- run Program State Review for completion;
+- set root `PROGRAM.md` to `**Status**: done` and fill `**Done at**`;
+- immediately archive the complete root `PROGRAM.md` and `roadmaps/` directory
+  to `program-codex/archive/YYYY-MM-DD-P001-<program-slug>/`;
+- remove root `PROGRAM.md` and root `roadmaps/` after archiving.
+
+Do not leave a completed program at the root. A completed root `PROGRAM.md`
+pollutes the next planning context and may cause a future program to continue
+at `R00N+1` instead of starting from `R001`.
 
 ## Commit Gates
 
@@ -158,6 +195,8 @@ Stop instead of guessing when:
 
 - a new program is requested while root `program-codex/PROGRAM.md` already
   exists and has not been archived or explicitly replaced;
+- root `PROGRAM.md` has `Status: done`; archive it before planning or starting
+  anything new;
 - `PROGRAM.md` points to a missing active roadmap;
 - multiple roadmaps are `in_progress`;
 - the active child roadmap has multiple active versions;

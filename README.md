@@ -209,7 +209,7 @@ What it does:
 - creates a phase under `roadmap-codex/<phase-slug>/`
 - writes an `index.md` plus one `v<N>-<slug>.md` file per version
 - expects each version to have concrete goal, scope, done-when checks, approach, verification, risks, decisions, and notes
-- advances version by version with scoped commit/review gates
+- runs local verification, per-version subagent review, and scoped commit/review gates before advancing
 
 Choose `roadmap` for:
 
@@ -242,7 +242,16 @@ What it does:
 - manages child roadmaps under `program-codex/roadmaps/RNNN-<slug>/`
 - keeps exactly one active roadmap in the root `PROGRAM.md`
 - uses `roadmap` format inside each child roadmap
+- runs per-version subagent review inside every child roadmap
 - adds program-level design review and state-transition review between child roadmaps
+- archives a completed program immediately so the next new program starts from `R001`
+
+Program completion rule:
+
+- root `program-codex/PROGRAM.md` is only for the current active program;
+- when all child roadmaps are done, archive `PROGRAM.md` and `roadmaps/` to `program-codex/archive/YYYY-MM-DD-P001-<program-slug>/`;
+- after archiving, root `PROGRAM.md` and root `roadmaps/` should be absent;
+- a new program recreates both root files/directories and starts child roadmap IDs at `R001`, not `R00N+1`.
 
 Choose `program` for:
 
@@ -283,6 +292,10 @@ program-codex/
       index.md
       v1-<slug>.md
       ...
+  archive/
+    YYYY-MM-DD-P001-<program-slug>/
+      PROGRAM.md
+      roadmaps/
 ```
 
 ## Practical workflow guidance

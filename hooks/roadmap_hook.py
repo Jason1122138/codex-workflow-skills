@@ -51,8 +51,20 @@ class ProgramRoadmap:
 
 
 @dataclass
+class ProgramFile:
+    program_id: str
+    status: str
+    done_at: str
+    active_roadmap_id: str
+    roadmaps: dict[str, ProgramRoadmap]
+
+
+@dataclass
 class ProgramContext:
     program_path: Path
+    program_id: str
+    program_status: str
+    done_at: str
     active_roadmap_id: str
     active_roadmap: ProgramRoadmap | None
     active_plan: ActivePlan | None
@@ -126,6 +138,19 @@ def handle_session_start(event_name: str, root: Path) -> int:
                 program_payload(program),
             )
             return 0
+        if program.program_status == "done":
+            emit_additional_context(
+                event_name,
+                "[PROGRAM ARCHIVE REQUIRED]",
+                (
+                    "Root program-codex/PROGRAM.md is Status: done. Archive "
+                    "the completed program to program-codex/archive/YYYY-MM-DD-"
+                    "P001-<program-slug>/ and remove root PROGRAM.md/roadmaps "
+                    "before planning a new program. Do not continue at R00N+1."
+                ),
+                program_payload(program),
+            )
+            return 0
         if program.active_plan and program.active_roadmap:
             emit_additional_context(
                 event_name,
@@ -175,6 +200,22 @@ def handle_user_prompt_submit(
 ) -> int:
     prompt = extract_prompt(hook_input)
     if looks_like_program_request(prompt):
+        program = find_program_context(root)
+        existing_program_note = (
+            "if root PROGRAM.md already exists, continue it, archive it, "
+            "block/pause it, or explicitly overwrite it before creating a new program."
+        )
+        if not program:
+            existing_program_note = (
+                "if creating a new program, recreate root PROGRAM.md/roadmaps "
+                "from scratch and start child roadmap IDs at R001; archive is "
+                "history only."
+            )
+        elif program.program_status == "done":
+            existing_program_note = (
+                "root PROGRAM.md is Status: done; archive it immediately, remove "
+                "root PROGRAM.md/roadmaps, then create any new program from R001."
+            )
         emit_additional_context(
             event_name,
             "[PROGRAM ENFORCE]",
@@ -182,9 +223,7 @@ def handle_user_prompt_submit(
                 "Program request detected. Use program-codex/PROGRAM.md and "
                 "program-codex/roadmaps/RNNN-<slug>/ child roadmaps; call "
                 "subagent design/state reviews with retry cap 2; run per-version "
-                "subagent review inside every child roadmap; if root PROGRAM.md "
-                "already exists, continue it, archive it, block/pause it, or "
-                "explicitly overwrite it before creating a new program."
+                f"subagent review inside every child roadmap; {existing_program_note}"
             ),
             {"root": str(root), "prompt_excerpt": prompt[:200]},
         )
@@ -470,10 +509,15 @@ def find_program_context(root: Path) -> ProgramContext | None:
     if not program_path.is_file():
         return None
 
-    active_roadmap_id, roadmaps = parse_program_file(program_path)
+    parsed = parse_program_file(program_path)
+    active_roadmap_id = parsed.active_roadmap_id
+    roadmaps = parsed.roadmaps
     conflicts: list[str] = []
 
-    if not active_roadmap_id:
+    if parsed.status and parsed.status not in {"in_progress", "done", "blocked"}:
+        conflicts.append(f"PROGRAM.md has invalid program Status: {parsed.status}.")
+
+    if not active_roadmap_id and parsed.status != "done":
         conflicts.append("PROGRAM.md does not declare **Active roadmap**.")
 
     in_progress = [
@@ -487,7 +531,7 @@ def find_program_context(root: Path) -> ProgramContext | None:
         conflicts.append(f"Active roadmap {active_roadmap_id} is not listed in PROGRAM.md.")
 
     active_plan = None
-    if active_roadmap:
+    if active_roadmap and parsed.status != "done":
         if not active_roadmap.path.is_file():
             conflicts.append(
                 f"Active roadmap path is missing: {active_roadmap.path}."
@@ -509,6 +553,9 @@ def find_program_context(root: Path) -> ProgramContext | None:
 
     return ProgramContext(
         program_path=program_path,
+        program_id=parsed.program_id,
+        program_status=parsed.status,
+        done_at=parsed.done_at,
         active_roadmap_id=active_roadmap_id,
         active_roadmap=active_roadmap,
         active_plan=active_plan,
@@ -517,18 +564,34 @@ def find_program_context(root: Path) -> ProgramContext | None:
     )
 
 
-def parse_program_file(program_path: Path) -> tuple[str, dict[str, ProgramRoadmap]]:
+def parse_program_file(program_path: Path) -> ProgramFile:
     return parse_program_text(program_path, program_path.read_text())
 
 
-def parse_program_text(
-    program_path: Path, text: str
-) -> tuple[str, dict[str, ProgramRoadmap]]:
+def parse_program_text(program_path: Path, text: str) -> ProgramFile:
+    program_id = ""
+    program_status = ""
+    done_at = ""
     active_roadmap_id = ""
     sections: dict[str, dict[str, str]] = {}
     current = None
 
     for line in text.splitlines():
+        program_id_match = re.match(r"^\*\*Program ID\*\*:\s*(.+?)\s*$", line)
+        if program_id_match:
+            program_id = program_id_match.group(1).strip()
+            continue
+
+        status_match = re.match(r"^\*\*Status\*\*:\s*(.+?)\s*$", line)
+        if status_match:
+            program_status = status_match.group(1).strip()
+            continue
+
+        done_at_match = re.match(r"^\*\*Done at\*\*:\s*(.+?)\s*$", line)
+        if done_at_match:
+            done_at = done_at_match.group(1).strip()
+            continue
+
         active_match = re.match(r"^\*\*Active roadmap\*\*:\s*(.+?)\s*$", line)
         if active_match:
             active_roadmap_id = active_match.group(1).strip()
@@ -571,7 +634,13 @@ def parse_program_text(
             final_verification=data.get("final verification", ""),
         )
 
-    return active_roadmap_id, roadmaps
+    return ProgramFile(
+        program_id=program_id,
+        status=program_status,
+        done_at=done_at,
+        active_roadmap_id=active_roadmap_id,
+        roadmaps=roadmaps,
+    )
 
 
 def find_in_progress_versions(index: Path) -> list[str]:
@@ -629,16 +698,18 @@ def validate_program_state_gate(
 
     previous_active = ""
     if previous_program_text:
-        previous_active, _ = parse_program_text(
+        previous_active = parse_program_text(
             root / PROGRAM_DIR_NAME / PROGRAM_FILE_NAME, previous_program_text
-        )
+        ).active_roadmap_id
 
     candidate_active = ""
     candidate_roadmaps: dict[str, ProgramRoadmap] = {}
     if candidate_program_text:
-        candidate_active, candidate_roadmaps = parse_program_text(
+        candidate_program = parse_program_text(
             root / PROGRAM_DIR_NAME / PROGRAM_FILE_NAME, candidate_program_text
         )
+        candidate_active = candidate_program.active_roadmap_id
+        candidate_roadmaps = candidate_program.roadmaps
 
     unstaged_state = unstaged_program_state_files(root)
     if unstaged_state:
@@ -1077,6 +1148,9 @@ def active_payload(active: ActivePlan) -> dict[str, str]:
 def program_payload(program: ProgramContext) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "program_path": str(program.program_path),
+        "program_id": program.program_id,
+        "program_status": program.program_status,
+        "done_at": program.done_at,
         "active_roadmap_id": program.active_roadmap_id,
         "conflicts": program.conflicts,
         "roadmaps": {

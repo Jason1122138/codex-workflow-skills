@@ -212,7 +212,7 @@ $roadmap 继续这个 feature 的既有 roadmap workflow，并完成当前版本
 - 在 `roadmap-codex/<phase-slug>/` 下创建一个 phase
 - 写出一个 `index.md`，以及每个版本对应的 `v<N>-<slug>.md`
 - 要求每个版本都有明确的目标、范围、done-when、实现步骤、验证方式、风险、决策点、备注
-- 按版本推进，并带有 scoped commit / review gate
+- 每个版本完成前先跑本地验证和 per-version subagent review，再通过 scoped commit / review gate 推进
 
 适合 `roadmap` 的场景：
 
@@ -245,7 +245,16 @@ $program 继续当前 program workflow，并从当前 child roadmap 切换到下
 - 在 `program-codex/roadmaps/RNNN-<slug>/` 下管理多个 child roadmaps
 - 保证根 `PROGRAM.md` 中始终只有一个 active roadmap
 - 每个 child roadmap 内部继续沿用 `roadmap` 的格式
+- 每个 child roadmap 的每个版本都要跑 per-version subagent review
 - 在 child roadmap 之间加入 program 级别的 design review / state transition review
+- program 完成后立即归档，避免下一个新 program 误从旧编号继续到 `R00N+1`
+
+program 完成规则：
+
+- 根 `program-codex/PROGRAM.md` 只代表当前 active program；
+- 所有 child roadmap 完成后，把 `PROGRAM.md` 和 `roadmaps/` 归档到 `program-codex/archive/YYYY-MM-DD-P001-<program-slug>/`；
+- 归档后根 `PROGRAM.md` 和根 `roadmaps/` 应不存在；
+- 新 program 重新创建根文件/目录，child roadmap 从 `R001` 开始，不从 `R00N+1` 继续。
 
 适合 `program` 的场景：
 
@@ -286,6 +295,10 @@ program-codex/
       index.md
       v1-<slug>.md
       ...
+  archive/
+    YYYY-MM-DD-P001-<program-slug>/
+      PROGRAM.md
+      roadmaps/
 ```
 
 ## 快速判断：该用哪个？
