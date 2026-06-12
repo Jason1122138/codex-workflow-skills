@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "WARN"]
+    },
+    "message": {
+      "type": "string"
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "satisfied": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": ["text", "satisfied", "evidence"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["verdict", "message"],
+  "additionalProperties": false
+}

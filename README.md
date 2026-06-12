@@ -7,6 +7,7 @@ Public export of two Codex workflow skills from a working local Codex setup:
 
 - `roadmap` — break a medium or large task into reviewable, verifiable versions
 - `program` — coordinate one large goal as multiple ordered child roadmaps
+- optional roadmap hooks — add session-start context injection, prompt-time workflow enforcement, and Bash pre-tool review checks for users who want the fuller automation layer
 
 These skills are meant to be installed into Codex's local skills directory and used together with a project-level `AGENTS.md`.
 
@@ -22,10 +23,18 @@ Notes:
 - In these skills, `/roadmap` and `/program` are treated as intent markers.
 - The explicit skill invocation is `$roadmap` or `$program`.
 - `program` is an orchestration layer above `roadmap`; it does not replace the single-roadmap workflow.
+- The repository also includes an optional hook pack for users who want the workflow guardrails, not just the skill text.
 
 ## Repository layout
 
 ```text
+config-examples/
+  roadmap-hooks.example.toml
+hooks/
+  roadmap_hook.py
+roadmap-assets/
+  verifier-prompt.md
+  verifier.schema.json
 skills/
   roadmap/
     SKILL.md
@@ -79,6 +88,106 @@ ls ~/.codex/skills/program
 You should see `SKILL.md` and `agents/openai.yaml` in each skill directory.
 
 If Codex does not pick up the skills immediately, start a new Codex session.
+
+## Optional: install the roadmap hooks
+
+If you want to share the fuller workflow experience with a friend, the skills alone are not the whole story. This repo also includes:
+
+- `hooks/roadmap_hook.py`
+- `roadmap-assets/verifier-prompt.md`
+- `roadmap-assets/verifier.schema.json`
+- `config-examples/roadmap-hooks.example.toml`
+
+These are optional, but useful when you want:
+
+- active roadmap/program context injected at session start;
+- roadmap/program request enforcement when the user submits a prompt;
+- a Bash pre-tool hook that can inspect roadmap-related commit behavior.
+
+### Hook prerequisites
+
+Before installing the hook pack, the receiving machine should already have:
+
+- `bash`
+- `python3`
+- `git`
+
+If the user wants the advanced automatic verifier path, they also need:
+
+- a working `codex` CLI on `PATH`
+- support for `codex exec`
+
+Platform note:
+
+- the shared hook commands in this repo are **POSIX-oriented**;
+- on Windows, treat this as a **WSL / Git Bash style setup**, not a native PowerShell hook recipe.
+
+### Hook install (macOS / Linux)
+
+```bash
+mkdir -p ~/.codex/hooks ~/.codex/roadmap
+cp hooks/roadmap_hook.py ~/.codex/hooks/roadmap_hook.py
+cp roadmap-assets/verifier-prompt.md ~/.codex/roadmap/verifier-prompt.md
+cp roadmap-assets/verifier.schema.json ~/.codex/roadmap/verifier.schema.json
+```
+
+Then merge the example snippet from:
+
+```text
+config-examples/roadmap-hooks.example.toml
+```
+
+into:
+
+```text
+~/.codex/config.toml
+```
+
+Important:
+
+- make sure `hooks = true` is enabled in Codex config;
+- do **not** copy another machine's `[hooks.state]` entries;
+- restart Codex after updating the hook config.
+
+### What the hook currently registers
+
+- `SessionStart` → load roadmap/program context on startup/resume/clear/compact
+- `UserPromptSubmit` → inject roadmap/program workflow enforcement hints
+- `PreToolUse` for `Bash` → check roadmap-related commit/verifier flow
+
+### Commit-time verifier behavior
+
+By default, the hook can warn about roadmap verification flow, but the automatic `codex exec` verifier path is **not** enabled unless the user explicitly opts in.
+
+When that advanced verifier path is enabled, the hook launches a nested:
+
+- `codex exec`
+- in `--sandbox read-only`
+- with `--dangerously-bypass-hook-trust`
+
+This is intentional for the verifier flow, but it should be treated as an advanced opt-in mode, not a default beginner setup.
+
+Optional advanced toggles are documented in:
+
+```text
+config-examples/roadmap-hooks.example.toml
+```
+
+In particular:
+
+- `CODEX_ROADMAP_RUN_CODEX_EXEC=1` enables the `codex exec` verifier path
+- `CODEX_ROADMAP_FAIL_EXIT=<nonzero>` can make verifier FAIL return a blocking exit code after smoke testing
+- `CODEX_ROADMAP_ASSETS_DIR=...` can override where verifier assets are loaded from
+
+### Minimal smoke test
+
+After installing the hook file and config snippet, a minimal local check is:
+
+```bash
+python3 ~/.codex/hooks/roadmap_hook.py session-start </dev/null
+```
+
+With no active roadmap/program in the current directory, this should exit quietly instead of crashing.
 
 ## How to invoke the skills
 

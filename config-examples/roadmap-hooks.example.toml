@@ -1,0 +1,41 @@
+# Merge this snippet into ~/.codex/config.toml.
+#
+# Notes:
+# - Ensure `hooks = true` is enabled elsewhere in your Codex config.
+# - Do NOT copy any `[hooks.state]` entries from someone else's machine.
+#   Codex will manage trust state locally on first use.
+# - These commands assume a POSIX shell environment (macOS / Linux, or Codex
+#   running under WSL / Git Bash).
+
+
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear|compact"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "bash -lc 'python3 \"$HOME/.codex/hooks/roadmap_hook.py\" session-start'"
+timeout = 30
+statusMessage = "Loading global roadmap context"
+
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "bash -lc 'python3 \"$HOME/.codex/hooks/roadmap_hook.py\" user-prompt-submit'"
+timeout = 30
+statusMessage = "Checking global roadmap prompt"
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "bash -lc 'python3 \"$HOME/.codex/hooks/roadmap_hook.py\" pre-tool-use'"
+timeout = 120
+statusMessage = "Checking global roadmap verifier"
+
+# Optional advanced environment toggles:
+# export CODEX_ROADMAP_RUN_CODEX_EXEC=1
+# export CODEX_ROADMAP_FAIL_EXIT=2
+# export CODEX_ROADMAP_VERIFIER_TIMEOUT=120
+# export CODEX_ROADMAP_ASSETS_DIR="$HOME/.codex/roadmap"
