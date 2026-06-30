@@ -1,0 +1,33 @@
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear|compact"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "bash -lc 'python3 ~/.codex/hooks/roadmap_hook.py session-start'"
+timeout = 30
+statusMessage = "Loading roadmap/program workflow context"
+
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "bash -lc 'python3 ~/.codex/hooks/roadmap_hook.py user-prompt-submit'"
+timeout = 30
+statusMessage = "Checking roadmap/program workflow prompt"
+
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "bash -lc 'python3 ~/.codex/hooks/roadmap_hook.py stop'"
+timeout = 30
+statusMessage = "Checking roadmap/program workflow state"
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "bash -lc 'python3 ~/.codex/hooks/roadmap_hook.py pre-tool-use'"
+timeout = 120
+statusMessage = "Checking roadmap/program workflow gate"
